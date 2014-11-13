@@ -9,17 +9,17 @@ def symbolicate_crash_cmd(args):
     #
     # enumerate binary images in the crash
     binaries = {}
-    BinaryInfo = collections.namedtuple('BinaryInfo', ["start_hex", "end_hex", "name", "uuid"])
+    BinaryInfo = collections.namedtuple('BinaryInfo', ["start_hex", "end_hex", "name", "uuid", "path"])
     i = 0
     while (i < len(crash_lines)) and not crash_lines[i].startswith("Binary Images:"):
         i += 1
     while (i < len(crash_lines)):
         i += 1
-        rxm = re.search(r'''(0x[0-9a-fA-F]+) \s* - \s* (0x[0-9a-fA-F]+) \s+ \+?(\S+) .* <([0-9a-fA-F\-]+)>''', crash_lines[i], flags=re.X)
+        rxm = re.search(r'''(0x[0-9a-fA-F]+) \s* - \s* (0x[0-9a-fA-F]+) \s+ \+?(\S+) .* <([0-9a-fA-F\-]+)> \s+ ([^\n\r\t]+)''', crash_lines[i], flags=re.X)
         if not rxm:
             break
-        start_hex, end_hex, name, uuid = rxm.groups()
-        info = BinaryInfo(start_hex=start_hex, end_hex=end_hex, name=name, uuid=uuid.upper())
+        start_hex, end_hex, name, uuid, path = rxm.groups()
+        info = BinaryInfo(start_hex=start_hex, end_hex=end_hex, name=name, uuid=uuid.upper(), path=path)
         binaries[name] = info
 
     #
@@ -37,7 +37,7 @@ def symbolicate_crash_cmd(args):
                 uuid, subpath = rxm.groups()
                 dsyms[uuid.upper()] = os.path.join(dsymdir, subpath)
             except subprocess.CalledProcessError, ex:
-                print("skip (dwarfdump failed): {}".format(path), file=sys.stderr)
+                print("dwarfdump failed: {}".format(path), file=sys.stderr)
     assert dsyms, "no .dSYM files found in directories: {}".format(dirs)
 
     #
@@ -60,10 +60,19 @@ def symbolicate_crash_cmd(args):
                     atos_calls[name] = atos_addresses
                 atos_addresses.append(AtosAddress(hexaddr=hexaddr, index=i, needle=needle))
             else:
-                failed_binaries[name] = "no symbols found"
+                # Check if dsym is found, but uuids do not match.
+                fn = os.path.basename(binaries[name].path)
+                for dsympath in dsyms.values():
+                    if os.path.basename(dsympath) == fn:
+                        failed_binaries[name] = "binary and dSYM are from different builds ('{}' has different UUID from '{}')".format(binaries[name].path, dsympath)
+                        break
+                else:
+                    # for-else is executed when `for` was not terminated by `break`
+                    failed_binaries[name] = "no symbols found"
 
     #
     # make atos calls and substitute lines in the report
+    replacements_made = False
     for name in atos_calls:
         load_hex = binaries[name].start_hex
         dwarf_path = dsyms[binaries[name].uuid]
@@ -82,19 +91,26 @@ def symbolicate_crash_cmd(args):
                 line = crash_lines[addr.index].replace(addr.needle, output_lines[i])
                 if line != crash_lines[addr.index]:
                     crash_lines[addr.index] = line
+                    replacements_made = True
 
     #
     # output the result
-    if args.rewrite:
-        open(args.dotcrash, "w").write("".join(crash_lines))
+    if replacements_made or not failed_binaries:
+        exit_code = 0
+        if args.rewrite:
+            open(args.dotcrash, "w").write("".join(crash_lines))
+        else:
+            for line in crash_lines:
+                print(line, end="") # newlines are already there for the original file
     else:
-        for line in crash_lines:
-            print(line, end="") # newlines are already there for the original file
+        exit_code = 1
 
     #
     # print warnings
     for name in failed_binaries:
-        print("{name}: {failed_binaries[name]}".format(**vars))
+        print("{}: {}".format(name, failed_binaries[name]), file=sys.stderr)
+
+    raise SystemExit(exit_code)
 
 if __name__ == "__main__":
     import argparse
