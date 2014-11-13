@@ -1,0 +1,132 @@
+#!/usr/bin/python
+from __future__ import print_function
+
+def symbolicate_crash_cmd(args):
+    """
+    - read "Binary Images" section, into mapping { name : struct }
+        - starting address, ending address
+        - uuid
+    - find dsyms and use `drawfdump --uuid` to match uuids
+    - find lines like "3   libremote.dylib                   0x00518704 0x4fc000 + 116484"
+    - use `atos` to substitute the proper symbol
+    - warn once per binary if its address can not be symbolicated
+    """
+    crash_lines = open(args.dotcrash, "r").readlines()
+
+    import collections, os, os.path, re, subprocess, sys
+
+    """
+    #
+    # detect arch
+    for line in crash_lines:
+        if line.startswith('Code Type:'):
+            rxm = re.search(r'''\s(X\S+)''', line, re.X)
+            assert rxm, "can not find CPU architechture in crash file (not a crash file?)"
+            arch_str = rxm.group(1)
+            if arch_str == "X86":
+                arch = "i386"
+            elif arch_str == "X86-64":
+                arch = "x86_64"
+            else:
+                raise Exception("Unknown architechture: {}".format(arch_str))
+    """
+
+    #
+    # enumerate binary images in the crash
+    binaries = {}
+    BinaryInfo = collections.namedtuple('BinaryInfo', ["start_hex", "end_hex", "name", "uuid"])
+    i = 0
+    while (i < len(crash_lines)) and not crash_lines[i].startswith("Binary Images:"):
+        i += 1
+    while (i < len(crash_lines)):
+        i += 1
+        rxm = re.search(r'''(0x[0-9a-fA-F]+) \s* - \s* (0x[0-9a-fA-F]+) \s+ \+?(\S+) .* <([0-9a-fA-F\-]+)>''', crash_lines[i], flags=re.X)
+        if not rxm:
+            break
+        start_hex, end_hex, name, uuid = rxm.groups()
+        info = BinaryInfo(start_hex=start_hex, end_hex=end_hex, name=name, uuid=uuid.upper())
+        binaries[name] = info
+
+    #
+    # enumerate dsyms
+    dsyms = {}
+    dirs = args.symdirs if args.symdirs else ["."]
+    for dsymdir in dirs:
+        for fn in os.listdir(dsymdir):
+            if not fn.endswith(".dSYM"):
+                continue
+            path = os.path.join(dsymdir, fn)
+            try:
+                output = subprocess.check_output(["dwarfdump", "--uuid", path], universal_newlines=True)
+                rxm = re.search(r'''UUID: \s+ ([0-9a-fA-F\-]+) \s+ \(\S+\) \s+ ([^\n\r\t]+)''', output, flags=re.X)
+                uuid, subpath = rxm.groups()
+                dsyms[uuid.upper()] = os.path.join(dsymdir, subpath)
+            except subprocess.CalledProcessError, ex:
+                print("skip (dwarfdump failed): {}".format(path), file=sys.stderr)
+    assert dsyms, "no .dSYM files found in directories: {}".format(dirs)
+
+    #
+    # find lines with unresolved symbols and plan atos calls
+    atos_calls = {}
+    AtosAddress = collections.namedtuple("AtosAddress", ["hexaddr", "index", "needle"])
+    failed_binaries = {}
+    for i in range(len(crash_lines)):
+        # example: 1   libguimodel.dylib                0x006ee72a 0x64d000 + 661290
+        rxm = re.search(r'''^\d+ \s+ (\S+) \s+ (0x[0-9a-fA-F]+) \s+ (0x[^\n\r\t]+)''', crash_lines[i], flags=re.X)
+        if rxm:
+            name, hexaddr, needle = rxm.groups()
+            if name in failed_binaries:
+                continue
+            if (name in binaries) and (binaries[name].uuid in dsyms):
+                if name in atos_calls:
+                    atos_addresses = atos_calls[name]
+                else:
+                    atos_addresses = []
+                    atos_calls[name] = atos_addresses
+                atos_addresses.append(AtosAddress(hexaddr=hexaddr, index=i, needle=needle))
+            else:
+                failed_binaries[name] = "no symbols found"
+
+    #
+    # make atos calls and substitute lines in the report
+    for name in atos_calls:
+        load_hex = binaries[name].start_hex
+        dwarf_path = dsyms[binaries[name].uuid]
+        atos_addresses = atos_calls[name]
+        hexes = [addr.hexaddr for addr in atos_addresses]
+        try:
+            output = subprocess.check_output(["atos", "-l", load_hex, "-o", dwarf_path] + hexes, universal_newlines=True)
+        except subprocess.CalledProcessError, ex:
+            failed_binaries[name] = "atos failed"
+        output_lines = output.splitlines()
+        if len(output_lines) < len(atos_addresses):
+            failed_binaries[name] = "atos produced strange output (unknown version?)"
+        else:
+            for i in range(len(atos_addresses)):
+                addr = atos_addresses[i]
+                line = crash_lines[addr.index].replace(addr.needle, output_lines[i])
+                if line != crash_lines[addr.index]:
+                    crash_lines[addr.index] = line
+
+    #
+    # output the result
+    if args.rewrite:
+        open(args.dotcrash, "w").write("".join(crash_lines))
+    else:
+        for line in crash_lines:
+            print(line, end="") # newlines are already there for the original file
+
+    #
+    # print warnings
+    for name in failed_binaries:
+        print("{name}: {failed_binaries[name]}".format(**vars))
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--symdirs", action="append", metavar="dsymdir", help="Directories with .dSYM files, may appear multiple times. If absent, the current working directory will be used.")
+    parser.add_argument("-w", "--rewrite", action="store_true", help="Rewrite crash file inplace, instead of printing symbolicated result to stdout.")
+    parser.add_argument("dotcrash", help="A crash file to symbolicate.")
+    args = parser.parse_args()
+    symbolicate_crash_cmd(args)
+
