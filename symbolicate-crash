@@ -2,34 +2,9 @@
 from __future__ import print_function
 
 def symbolicate_crash_cmd(args):
-    """
-    - read "Binary Images" section, into mapping { name : struct }
-        - starting address, ending address
-        - uuid
-    - find dsyms and use `drawfdump --uuid` to match uuids
-    - find lines like "3   libremote.dylib                   0x00518704 0x4fc000 + 116484"
-    - use `atos` to substitute the proper symbol
-    - warn once per binary if its address can not be symbolicated
-    """
     crash_lines = open(args.dotcrash, "r").readlines()
 
     import collections, os, os.path, re, subprocess, sys
-
-    """
-    #
-    # detect arch
-    for line in crash_lines:
-        if line.startswith('Code Type:'):
-            rxm = re.search(r'''\s(X\S+)''', line, re.X)
-            assert rxm, "can not find CPU architechture in crash file (not a crash file?)"
-            arch_str = rxm.group(1)
-            if arch_str == "X86":
-                arch = "i386"
-            elif arch_str == "X86-64":
-                arch = "x86_64"
-            else:
-                raise Exception("Unknown architechture: {}".format(arch_str))
-    """
 
     #
     # enumerate binary images in the crash
@@ -124,7 +99,7 @@ def symbolicate_crash_cmd(args):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--symdirs", action="append", metavar="dsymdir", help="Directories with .dSYM files, may appear multiple times. If absent, the current working directory will be used.")
+    parser.add_argument("-d", "--symdirs", action="append", metavar="dsymdir", help="Directory with .dSYM bundles, may appear multiple times. If absent, the current working directory will be used.")
     parser.add_argument("-w", "--rewrite", action="store_true", help="Rewrite crash file inplace, instead of printing symbolicated result to stdout.")
     parser.add_argument("dotcrash", help="A crash file to symbolicate.")
     args = parser.parse_args()
