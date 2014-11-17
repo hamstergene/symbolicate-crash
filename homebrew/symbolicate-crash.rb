@@ -1,11 +1,8 @@
-require "formula"
+require 'formula'
 
-class SymbolicateCrash < Formula
-  homepage "https://github.com/hamstergene/symbolicate-crash"
-  head "https://github.com/hamstergene/symbolicate-crash.git"
-
-  def install
-    bin.install "symbolicate-crash" => "symbolicate-crash"
-  end
+class SymbolicateCrash < ScriptFileFormula
+  url 'https://raw.githubusercontent.com/hamstergene/symbolicate-crash/v0.1/homebrew/symbolicate-crash.rb'
+  version '0.1'
+  homepage 'https://github.com/hamstergene/symbolicate-crash'
 end
 
