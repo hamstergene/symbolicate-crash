@@ -19,5 +19,5 @@ A simple Python script which inserts symbols into .crash files.
 
 ### Installation
 
-    brew install https://raw.githubusercontent.com/hamstergene/symbolicate-crash/v0.2/homebrew/symbolicate-crash.rb
+    brew install https://raw.githubusercontent.com/hamstergene/symbolicate-crash/master/homebrew/symbolicate-crash.rb
 

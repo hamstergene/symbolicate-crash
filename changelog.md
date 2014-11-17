@@ -1,3 +1,6 @@
+### 0.3: 2014-11-17
+- added checksum
+
 ### 0.2: 2014-11-17
 - added version to the script and homebrew formula
 
