@@ -34,8 +34,8 @@ def symbolicate_crash_cmd(args):
             try:
                 output = subprocess.check_output(["dwarfdump", "--uuid", path], universal_newlines=True)
                 rxm = re.search(r'''UUID: \s+ ([0-9a-fA-F\-]+) \s+ \(\S+\) \s+ ([^\n\r\t]+)''', output, flags=re.X)
-                uuid, subpath = rxm.groups()
-                dsyms[uuid.upper()] = os.path.join(dsymdir, subpath)
+                uuid, binpath = rxm.groups()
+                dsyms[uuid.upper()] = binpath
             except subprocess.CalledProcessError, ex:
                 print("dwarfdump failed: {}".format(path), file=sys.stderr)
     assert dsyms, "no .dSYM files found in directories: {}".format(dirs)
@@ -79,7 +79,8 @@ def symbolicate_crash_cmd(args):
         atos_addresses = atos_calls[name]
         hexes = [addr.hexaddr for addr in atos_addresses]
         try:
-            output = subprocess.check_output(["atos", "-l", load_hex, "-o", dwarf_path] + hexes, universal_newlines=True)
+            inv_args = ["atos", "-l", load_hex, "-o", dwarf_path] + hexes
+            output = subprocess.check_output(inv_args, universal_newlines=True)
         except subprocess.CalledProcessError, ex:
             failed_binaries[name] = "atos failed"
         output_lines = output.splitlines()
