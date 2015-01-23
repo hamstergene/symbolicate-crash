@@ -57,8 +57,6 @@ def symbolicate_crash_cmd(args):
         rxm = re.search(r'''^\d+ \s+ (\S+) \s+ (0x[0-9a-fA-F]+) \s+ ([^\n\r\t]+)''', crash_lines[i], flags=re.X)
         if rxm:
             name, hexaddr, needle = rxm.groups()
-            if not needle.startswith(name + ' + '):
-                continue # already symbolicated line
             if name in failed_binaries:
                 continue
             if (name in binaries) and (binaries[name].uuid in dsyms):
@@ -77,7 +75,12 @@ def symbolicate_crash_cmd(args):
                         break
                 else:
                     # for-else is executed when `for` was not terminated by `break`
-                    failed_binaries[name] = "no symbols found"
+
+                    # non-symbolicated lines are expected to be like this
+                    # 0   CoreFoundation                      0x910eb343 0xXXXXXXXX + 195
+                    # 0   CoreFoundation                      0x910eb343 _MangledName + 195
+                    if needle.startswith(name + ' + '):
+                        failed_binaries[name] = "no symbols found"
 
     #
     # make atos calls and substitute lines in the report

@@ -1,3 +1,6 @@
+### 0.5.2: 2015-01-23
+- more lines are resolved
+
 ### 0.5.1: 2015-01-23
 - also symbolicate "Application Specific Backtrace" sections
 
