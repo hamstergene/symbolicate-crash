@@ -23,6 +23,13 @@ def symbolicate_crash_cmd(args):
         binaries[name] = info
 
     #
+    # in case executable basename appears instead of bundle id (e.g. "Application Specific Backtrace" sections)
+    binary_by_basename = { os.path.basename(binary.path) : binary for binary in binaries.values() }
+    for basename in binary_by_basename:
+        if basename not in binaries:
+            binaries[basename] = binary_by_basename[basename]
+
+    #
     # enumerate dsyms
     dsyms = {}
     dirs = args.symdirs if args.symdirs else ["."]
@@ -47,9 +54,11 @@ def symbolicate_crash_cmd(args):
     failed_binaries = {}
     for i in range(len(crash_lines)):
         # example: 1   libguimodel.dylib                0x006ee72a 0x64d000 + 661290
-        rxm = re.search(r'''^\d+ \s+ (\S+) \s+ (0x[0-9a-fA-F]+) \s+ (0x[^\n\r\t]+)''', crash_lines[i], flags=re.X)
+        rxm = re.search(r'''^\d+ \s+ (\S+) \s+ (0x[0-9a-fA-F]+) \s+ ([^\n\r\t]+)''', crash_lines[i], flags=re.X)
         if rxm:
             name, hexaddr, needle = rxm.groups()
+            if not needle.startswith(name + ' + '):
+                continue # already symbolicated line
             if name in failed_binaries:
                 continue
             if (name in binaries) and (binaries[name].uuid in dsyms):

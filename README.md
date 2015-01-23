@@ -17,7 +17,8 @@ A simple Python script which inserts symbols into .crash files.
       -w, --rewrite         Rewrite crash file inplace, instead of printing
                             symbolicated result to stdout.
 
-### Installation
+### Installation/Upgrade
 
     brew install https://raw.githubusercontent.com/hamstergene/symbolicate-crash/master/homebrew/symbolicate-crash.rb
+    brew upgrade https://raw.githubusercontent.com/hamstergene/symbolicate-crash/master/homebrew/symbolicate-crash.rb
 

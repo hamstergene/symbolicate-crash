@@ -1,4 +1,7 @@
-### 0.3.1: 2015-01-22
+### 0.5: 2015-01-23
+- also symbolicate "Application Specific Backtrace" sections
+
+### 0.4: 2015-01-22
 - bug fixed
 
 ### 0.3: 2014-11-17
