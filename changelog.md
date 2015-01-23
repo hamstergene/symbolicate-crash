@@ -1,4 +1,4 @@
-### 0.5: 2015-01-23
+### 0.5.1: 2015-01-23
 - also symbolicate "Application Specific Backtrace" sections
 
 ### 0.4: 2015-01-22
