@@ -68,7 +68,7 @@ def symbolicate_crash_cmd(args):
                 atos_addresses.append(AtosAddress(hexaddr=hexaddr, index=i, needle=needle))
             else:
                 # Check if dsym is found, but uuids do not match.
-                fn = os.path.basename(binaries[name].path)
+                fn = os.path.basename(binaries[name].path if (name in binaries) else name)
                 for dsympath in dsyms.values():
                     if os.path.basename(dsympath) == fn:
                         failed_binaries[name] = "binary and dSYM are from different builds ('{}' has different UUID from '{}')".format(binaries[name].path, dsympath)
