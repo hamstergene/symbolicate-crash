@@ -1,9 +1,9 @@
 require 'formula'
 
 class SymbolicateCrash < ScriptFileFormula
-  url 'https://raw.githubusercontent.com/hamstergene/symbolicate-crash/v0.5.3/symbolicate-crash'
-  sha1 '8ce9cc8047bcc456dd075a5cfc71337442815137'
-  version '0.5.3'
+  url 'https://raw.githubusercontent.com/hamstergene/symbolicate-crash/v0.6/symbolicate-crash'
+  sha1 '25abe7206639e5fb621589686ce62497410f102a'
+  version '0.6'
   homepage 'https://github.com/hamstergene/symbolicate-crash'
 end
 

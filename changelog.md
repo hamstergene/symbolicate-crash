@@ -1,3 +1,6 @@
+0.6: 2015-11-11
+- add: support for spindumps
+
 0.5.3: 2015-03-11
 - fix: failed if there were invalid executable names ('???') in backtrace
 
