@@ -11,14 +11,16 @@ def symbolicate_crash_cmd(args):
     binaries = {}
     BinaryInfo = collections.namedtuple('BinaryInfo', ["start_hex", "end_hex", "name", "uuid", "path"])
     i = 0
-    while (i < len(crash_lines)) and not crash_lines[i].startswith("Binary Images:"):
+    while (i < len(crash_lines)) and not re.search(r'''\s*Binary Images:''', crash_lines[i]):
         i += 1
     while (i < len(crash_lines)):
         i += 1
-        rxm = re.search(r'''(0x[0-9a-fA-F]+) \s* - \s* (0x[0-9a-fA-F]+) \s+ \+?(\S+) .* <([0-9a-fA-F\-]+)> \s+ ([^\n\r\t]+)''', crash_lines[i], flags=re.X)
+        rxm = re.search(r'''\s*(0x[0-9a-fA-F]+) \s* - \s* (0x[0-9a-fA-F]+) \s+ \+?(\S+) .* <([0-9a-fA-F\-]+)> \s+ ([^\n\r\t]+)''', crash_lines[i], flags=re.X)
         if not rxm:
             break
         start_hex, end_hex, name, uuid, path = rxm.groups()
+        if args.verbose:
+            print("Binary Image: {} <{}>".format(name, uuid), file=sys.stderr)
         info = BinaryInfo(start_hex=start_hex, end_hex=end_hex, name=name, uuid=uuid.upper(), path=path)
         binaries[name] = info
 
@@ -53,7 +55,7 @@ def symbolicate_crash_cmd(args):
     AtosAddress = collections.namedtuple("AtosAddress", ["hexaddr", "index", "needle"])
     failed_binaries = {}
     for i in range(len(crash_lines)):
-        # example: 1   libguimodel.dylib                0x006ee72a 0x64d000 + 661290
+        # example (crash report): 1   libguimodel.dylib                0x006ee72a 0x64d000 + 661290
         rxm = re.search(r'''^\d+ \s+ (\S+) \s+ (0x[0-9a-fA-F]+) \s+ ([^\n\r\t]+)''', crash_lines[i], flags=re.X)
         if rxm:
             name, hexaddr, needle = rxm.groups()
@@ -81,6 +83,21 @@ def symbolicate_crash_cmd(args):
                     # 0   CoreFoundation                      0x910eb343 _MangledName + 195
                     if needle.startswith(name + ' + '):
                         failed_binaries[name] = "no symbols found"
+            continue
+        # example (hang report):           53  ??? (libkl_service.dylib + 429367) [0x2dd4d37] 1-53
+        rxm = re.search(r'''\s+ \d+ \s+ (.*) \[0[xX]([a-fA-F0-9]+)\]''', crash_lines[i], flags=re.X)
+        if rxm:
+            needle, hexaddr = rxm.groups()
+            laddr = int(hexaddr,16)
+            for binary in binaries.values():
+                if laddr >= int(binary.start_hex, 16) and laddr < int(binary.end_hex, 16) and binary.uuid in dsyms:
+                    if binary.name in atos_calls:
+                        atos_addresses = atos_calls[binary.name]
+                    else:
+                        atos_addresses = []
+                        atos_calls[binary.name] = atos_addresses
+                    atos_addresses.append(AtosAddress(hexaddr=hexaddr, index=i, needle=needle))
+                    break
 
     #
     # make atos calls and substitute lines in the report
@@ -131,6 +148,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--symdirs", action="append", metavar="dsymdir", help="Directory with .dSYM bundles, may appear multiple times. If absent, the current working directory will be used.")
     parser.add_argument("-w", "--rewrite", action="store_true", help="Rewrite crash file inplace, instead of printing symbolicated result to stdout.")
     parser.add_argument("dotcrash", help="A crash file to symbolicate.")
+    parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--version", action="version", version="%(prog)s 0.3")
     args = parser.parse_args()
     symbolicate_crash_cmd(args)
