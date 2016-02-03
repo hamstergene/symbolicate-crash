@@ -1,3 +1,6 @@
+0.6.1: 2016-02-03
+- imp: improved support for spindumps with missing image names and end addresses
+
 0.6: 2015-11-11
 - add: support for spindumps
 
