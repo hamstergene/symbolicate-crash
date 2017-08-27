@@ -1,3 +1,6 @@
+0.7: 2017-08-27
+- fix: avoid hitting ARG_MAX limit for very large crash dumps
+
 0.6.1: 2016-02-03
 - imp: improved support for spindumps with missing image names and end addresses
 

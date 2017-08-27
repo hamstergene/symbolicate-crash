@@ -1,6 +1,10 @@
-### Symbolicate OS X and iOS crash dumps
+### Symbolicate macOS and iOS crash dumps
 
-A simple Python script which inserts symbols into .crash files.
+A simple Python script which inserts symbols back into dump files. Supports:
+
+* Crash dumps, which are created automatically by system process CrashReporter when something crashes
+* Spin dumps, output from `spindump(8)`
+* Sampling reports, output from `sample(1)`
 
       $ ./symbolicate-crash -h
     usage: symbolicate-crash [-h] [-d dsymdir] [-w] dotcrash
