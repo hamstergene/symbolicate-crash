@@ -128,23 +128,25 @@ def symbolicate_crash_cmd(args):
     for name in atos_calls:
         load_hex = binaries[name].start_hex
         dwarf_path = dsyms[binaries[name].uuid]
-        atos_addresses = atos_calls[name]
-        hexes = [addr.hexaddr for addr in atos_addresses]
-        try:
-            inv_args = ["atos", "-l", load_hex, "-o", dwarf_path] + hexes
-            output = subprocess.check_output(inv_args, universal_newlines=True)
-        except subprocess.CalledProcessError, ex:
-            failed_binaries[name] = "atos failed"
-        output_lines = output.splitlines()
-        if len(output_lines) < len(atos_addresses):
-            failed_binaries[name] = "atos produced strange output (unknown version?)"
-        else:
-            for i in range(len(atos_addresses)):
-                addr = atos_addresses[i]
-                line = crash_lines[addr.index].replace(addr.needle, output_lines[i])
-                if line != crash_lines[addr.index]:
-                    crash_lines[addr.index] = line
-                    replacements_made = True
+        chunk_size = 10000 # avoid hitting ARG_MAX limit for very large crash dumps
+        for chunk_index in range(0, len(atos_calls[name]), chunk_size):
+            atos_addresses = atos_calls[name][chunk_index : chunk_index+chunk_size]
+            hexes = [addr.hexaddr for addr in atos_addresses]
+            try:
+                inv_args = ["atos", "-l", load_hex, "-o", dwarf_path] + hexes
+                output = subprocess.check_output(inv_args, universal_newlines=True)
+            except subprocess.CalledProcessError, ex:
+                failed_binaries[name] = "atos failed"
+            output_lines = output.splitlines()
+            if len(output_lines) < len(atos_addresses):
+                failed_binaries[name] = "atos produced strange output (unknown version?)"
+            else:
+                for i in range(len(atos_addresses)):
+                    addr = atos_addresses[i]
+                    line = crash_lines[addr.index].replace(addr.needle, output_lines[i])
+                    if line != crash_lines[addr.index]:
+                        crash_lines[addr.index] = line
+                        replacements_made = True
 
     #
     # output the result
