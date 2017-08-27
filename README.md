@@ -6,6 +6,8 @@ A simple Python script which inserts symbols back into dump files. Supports:
 * Spin dumps, output from `spindump(8)`
 * Sampling reports, output from `sample(1)`
 
+### Usage
+
       $ ./symbolicate-crash -h
     usage: symbolicate-crash [-h] [-d dsymdir] [-w] dotcrash
 
