@@ -17,10 +17,15 @@ def symbolicate_crash_cmd(args):
             break
         i += 1
     while (i < len(crash_lines)):
-        rxm = re.search(r'''\s* ( 0x[0-9a-fA-F]+ ) \s* - \s* ( 0x[0-9a-fA-F]+ | \?\?\? ) \s+ \+?(\S+) .* <([0-9a-fA-F\-]+)> \s+ ([^\n\r\t]*)''', crash_lines[i], flags=re.X)
+        rxm = re.search(r'''\s* ( 0x[0-9a-fA-F]+ ) \s* - \s* ( 0x[0-9a-fA-F]+ | \?\?\? ) \s+ \+?(\S+)(?:.* <([0-9a-fA-F\-]+)>)? \s+ ([^\n\r\t]*)''', crash_lines[i], flags=re.X)
         if not rxm:
             break
+        i += 1
         start_hex, end_hex, name, uuid, path = rxm.groups()
+        if uuid is None:
+            if args.verbose:
+                print("Skipping binary image {} due to missing UUID".format(name), file=sys.stderr)
+            continue
         uuid = uuid.upper()
         if name == "???":
             name = uuid.upper()
@@ -28,7 +33,6 @@ def symbolicate_crash_cmd(args):
             print("Binary Image: {} <{}> [{} ..< {}]".format(name, uuid, start_hex, end_hex), file=sys.stderr)
         info = BinaryInfo(start_hex=start_hex, end_hex=end_hex, name=name, uuid=uuid, path=path)
         binaries[name] = info
-        i += 1
 
     #
     # `end_hex` may be ??? sometimes. Resolve it by using next image's address as end_hex
