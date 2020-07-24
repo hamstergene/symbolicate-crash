@@ -1,3 +1,6 @@
+0.7.1: 2019-07-23
+- fix: handle missing UUIDs (by https://github.com/john-paulsmith)
+
 0.7: 2017-08-27
 - fix: avoid hitting ARG_MAX limit for very large crash dumps
 
