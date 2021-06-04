@@ -67,9 +67,10 @@ def symbolicate_crash_cmd(args):
             path = os.path.join(dsymdir, fn)
             try:
                 output = subprocess.check_output(["dwarfdump", "--uuid", path], universal_newlines=True)
-                rxm = re.search(r'''UUID: \s+ ([0-9a-fA-F\-]+) \s+ \(\S+\) \s+ ([^\n\r\t]+)''', output, flags=re.X)
-                uuid, binpath = rxm.groups()
-                dsyms[uuid.upper()] = binpath
+                rxms = re.findall(r'''UUID: \s+ ([0-9a-fA-F\-]+) \s+ \(\S+\) \s+ ([^\n\r\t]+)''', output, flags=re.X)
+                for rxm in rxms:
+                    uuid, binpath = rxm
+                    dsyms[uuid.upper()] = binpath
             except subprocess.CalledProcessError, ex:
                 print("dwarfdump failed: {}".format(path), file=sys.stderr)
     assert dsyms, "no .dSYM files found in directories: {}".format(dirs)
