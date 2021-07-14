@@ -29,12 +29,11 @@ def symbolicate_crash_cmd(args):
             if args.verbose:
                 print("Skipping binary image {} due to missing UUID".format(name), file=sys.stderr)
             continue
-        uuid = replace_dashes(uuid.upper())
         if name == "???":
             name = uuid
         if args.verbose:
             print("Binary Image: {} <{}> [{} ..< {}]".format(name, uuid, start_hex, end_hex), file=sys.stderr)
-        info = BinaryInfo(start_hex=start_hex, end_hex=end_hex, name=name, uuid=uuid, path=path)
+        info = BinaryInfo(start_hex=start_hex, end_hex=end_hex, name=name, uuid=replace_dashes(uuid.upper()), path=path)
         binaries[name] = info
 
     #
@@ -71,10 +70,9 @@ def symbolicate_crash_cmd(args):
             try:
                 output = subprocess.check_output(["dwarfdump", "--uuid", path], universal_newlines=True)
                 rxms = re.findall(r'''UUID: \s+ ([0-9a-fA-F\-]+) \s+ \(\S+\) \s+ ([^\n\r\t]+)''', output, flags=re.X)
-                for rxm in rxms:
-                    uuid, binpath = rxm
+                for uuid, binpath in rxms:
                     dsyms[replace_dashes(uuid.upper())] = binpath
-            except subprocess.CalledProcessError, ex:
+            except subprocess.CalledProcessError as ex:
                 print("dwarfdump failed: {}".format(path), file=sys.stderr)
     assert dsyms, "no .dSYM files found in directories: {}".format(dirs)
 
@@ -143,7 +141,7 @@ def symbolicate_crash_cmd(args):
             try:
                 inv_args = ["atos", "-l", load_hex, "-o", dwarf_path] + hexes
                 output = subprocess.check_output(inv_args, universal_newlines=True)
-            except subprocess.CalledProcessError, ex:
+            except subprocess.CalledProcessError as ex:
                 failed_binaries[name] = "atos failed"
             output_lines = output.splitlines()
             if len(output_lines) < len(atos_addresses):
@@ -176,13 +174,17 @@ def symbolicate_crash_cmd(args):
     raise SystemExit(exit_code)
 
 if __name__ == "__main__":
-    import argparse
+    import argparse, sys
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--symdirs", action="append", metavar="dsymdir", help="Directory with .dSYM bundles, may appear multiple times. If absent, the current working directory will be used.")
     parser.add_argument("-w", "--rewrite", action="store_true", help="Rewrite crash file inplace, instead of printing symbolicated result to stdout.")
     parser.add_argument("dotcrash", help="A crash file to symbolicate.")
     parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument("--version", action="version", version="%(prog)s 0.7.1")
-    args = parser.parse_args()
-    symbolicate_crash_cmd(args)
+    parser.add_argument("--version", action="version", version="%(prog)s 0.8")
+    if len(sys.argv) > 1:
+        args = parser.parse_args()
+        symbolicate_crash_cmd(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
 

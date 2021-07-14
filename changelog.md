@@ -1,3 +1,8 @@
+0.8: 2021-07-13
+- imp: recognize UUIDs without dashes (by https://github.com/Fab1n)
+- new: support fat dsym files (by https://github.com/ailinykh)
+- imp: python3 compatibility
+
 0.7.1: 2019-07-23
 - fix: handle missing UUIDs (by https://github.com/john-paulsmith)
 
