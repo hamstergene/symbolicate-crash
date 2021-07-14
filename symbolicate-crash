@@ -1,6 +1,9 @@
 #!/usr/bin/python
 from __future__ import print_function
 
+def replace_dashes(text):
+    return text.replace('-', '')
+
 def symbolicate_crash_cmd(args):
     crash_lines = open(args.dotcrash, "r").readlines()
 
@@ -26,9 +29,9 @@ def symbolicate_crash_cmd(args):
             if args.verbose:
                 print("Skipping binary image {} due to missing UUID".format(name), file=sys.stderr)
             continue
-        uuid = uuid.upper()
+        uuid = replace_dashes(uuid.upper())
         if name == "???":
-            name = uuid.upper()
+            name = uuid
         if args.verbose:
             print("Binary Image: {} <{}> [{} ..< {}]".format(name, uuid, start_hex, end_hex), file=sys.stderr)
         info = BinaryInfo(start_hex=start_hex, end_hex=end_hex, name=name, uuid=uuid, path=path)
@@ -70,7 +73,7 @@ def symbolicate_crash_cmd(args):
                 rxms = re.findall(r'''UUID: \s+ ([0-9a-fA-F\-]+) \s+ \(\S+\) \s+ ([^\n\r\t]+)''', output, flags=re.X)
                 for rxm in rxms:
                     uuid, binpath = rxm
-                    dsyms[uuid.upper()] = binpath
+                    dsyms[replace_dashes(uuid.upper())] = binpath
             except subprocess.CalledProcessError, ex:
                 print("dwarfdump failed: {}".format(path), file=sys.stderr)
     assert dsyms, "no .dSYM files found in directories: {}".format(dirs)
