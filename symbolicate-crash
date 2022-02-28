@@ -61,6 +61,8 @@ def symbolicate_crash_cmd(args):
     #
     # enumerate dsyms
     dsyms = {}
+    DsymInfo = collections.namedtuple('DsymInfo', ['path', 'arch'])
+
     dirs = args.symdirs if args.symdirs else ["."]
     for dsymdir in dirs:
         for fn in os.listdir(dsymdir):
@@ -69,9 +71,9 @@ def symbolicate_crash_cmd(args):
             path = os.path.join(dsymdir, fn)
             try:
                 output = subprocess.check_output(["dwarfdump", "--uuid", path], universal_newlines=True)
-                rxms = re.findall(r'''UUID: \s+ ([0-9a-fA-F\-]+) \s+ \(\S+\) \s+ ([^\n\r\t]+)''', output, flags=re.X)
-                for uuid, binpath in rxms:
-                    dsyms[replace_dashes(uuid.upper())] = binpath
+                rxms = re.findall(r'''UUID: \s+ ([0-9a-fA-F\-]+) \s+ \((\S+)\) \s+ ([^\n\r\t]+)''', output, flags=re.X)
+                for uuid, arch, binpath in rxms:
+                    dsyms[replace_dashes(uuid.upper())] = DsymInfo(binpath, arch)
             except subprocess.CalledProcessError as ex:
                 print("dwarfdump failed: {}".format(path), file=sys.stderr)
     assert dsyms, "no .dSYM files found in directories: {}".format(dirs)
@@ -98,7 +100,7 @@ def symbolicate_crash_cmd(args):
             else:
                 # Check if dsym is found, but uuids do not match.
                 fn = os.path.basename(binaries[name].path if (name in binaries) else name)
-                for dsympath in dsyms.values():
+                for dsympath, _ in dsyms.values():
                     if os.path.basename(dsympath) == fn:
                         failed_binaries[name] = "binary and dSYM are from different builds ('{}' has different UUID from '{}')".format(binaries[name].path, dsympath)
                         break
@@ -133,13 +135,13 @@ def symbolicate_crash_cmd(args):
     replacements_made = False
     for name in atos_calls:
         load_hex = binaries[name].start_hex
-        dwarf_path = dsyms[binaries[name].uuid]
+        dwarf_path, dwarf_arch = dsyms[binaries[name].uuid]
         chunk_size = 10000 # avoid hitting ARG_MAX limit for very large crash dumps
         for chunk_index in range(0, len(atos_calls[name]), chunk_size):
             atos_addresses = atos_calls[name][chunk_index : chunk_index+chunk_size]
             hexes = [addr.hexaddr for addr in atos_addresses]
             try:
-                inv_args = ["atos", "-l", load_hex, "-o", dwarf_path] + hexes
+                inv_args = ["atos", "-l", load_hex, "-arch", dwarf_arch, "-o", dwarf_path] + hexes
                 output = subprocess.check_output(inv_args, universal_newlines=True)
             except subprocess.CalledProcessError as ex:
                 failed_binaries[name] = "atos failed"
