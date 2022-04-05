@@ -1,3 +1,7 @@
+0.9: 2022-04-04
+- fix: picking up correct dsym arch (by https://github.com/3nippo)
+- imp: python3-only (next macOS will not include Python 2, by https://github.com/tylervick)
+
 0.8: 2021-07-13
 - imp: recognize UUIDs without dashes (by https://github.com/Fab1n)
 - new: support fat dsym files (by https://github.com/ailinykh)
